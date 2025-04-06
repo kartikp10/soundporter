@@ -8,13 +8,12 @@ package spotifyPorter
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
 	"encoding/csv"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"soundporter/internal/utils"
 	"strings"
 	"time"
 
@@ -27,7 +26,7 @@ const redirectURI = "http://localhost:8080/callback"
 var (
 	auth  = spotifyauth.New(spotifyauth.WithRedirectURL(redirectURI), spotifyauth.WithScopes(spotifyauth.ScopeUserReadPrivate))
 	ch    = make(chan *spotify.Client)
-	state = generateState()
+	state = utils.GenerateState()
 )
 
 type SpotifyPorter struct {
@@ -50,6 +49,9 @@ func (p *SpotifyPorter) Auth() error {
 	url := auth.AuthURL(state)
 	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
 
+	// Open the URL in the user's browser
+	utils.OpenBrowser(url)
+
 	// wait for auth to complete
 	p.Client = <-ch
 
@@ -69,11 +71,59 @@ func (p *SpotifyPorter) Export() error {
 	}
 
 	ctx := context.Background()
-
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter playlist name: ")
-	playlistName, _ := reader.ReadString('\n')
-	playlistName = strings.TrimSpace(playlistName)
+
+	// Get user's playlists with pagination support
+	var allPlaylists []spotify.SimplePlaylist
+	limit := 50
+	offset := 0
+
+	for {
+		playlistPage, err := p.Client.CurrentUsersPlaylists(ctx, spotify.Limit(limit), spotify.Offset(offset))
+		if err != nil {
+			return fmt.Errorf("error getting playlists: %v", err)
+		}
+
+		allPlaylists = append(allPlaylists, playlistPage.Playlists...)
+
+		if len(playlistPage.Playlists) < limit {
+			break
+		}
+		offset += limit
+	}
+
+	if len(allPlaylists) == 0 {
+		return fmt.Errorf("no playlists found in your account")
+	}
+
+	// Display available playlists
+	fmt.Println("\nAvailable playlists:")
+	for i, playlist := range allPlaylists {
+		fmt.Printf("%d. %s (%d tracks)\n", i+1, playlist.Name, playlist.Tracks.Total)
+	}
+
+	// Get user selection
+	var selectedIndex int
+	for {
+		fmt.Print("\nEnter playlist number to export (or 'q' to quit): ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if strings.ToLower(input) == "q" {
+			return fmt.Errorf("export canceled by user")
+		}
+
+		fmt.Sscanf(input, "%d", &selectedIndex)
+		if selectedIndex < 1 || selectedIndex > len(allPlaylists) {
+			fmt.Println("Invalid selection. Please try again.")
+			continue
+		}
+		break
+	}
+
+	// Get the selected playlist
+	selectedPlaylist := allPlaylists[selectedIndex-1]
+	fmt.Printf("Selected playlist: %s\n", selectedPlaylist.Name)
 
 	fmt.Print("Enter output filename (default: playlist.csv): ")
 	fileName, _ := reader.ReadString('\n')
@@ -85,28 +135,36 @@ func (p *SpotifyPorter) Export() error {
 		fileName += ".csv"
 	}
 
-	// Get user's playlists
-	playlists, err := p.Client.CurrentUsersPlaylists(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting playlists: %v", err)
-	}
+	// Get playlist tracks
+	for {
+		playlistPage, err := p.Client.CurrentUsersPlaylists(ctx, spotify.Limit(limit), spotify.Offset(offset))
+		if err != nil {
+			return fmt.Errorf("error getting playlists: %v", err)
+		}
 
-	var playlistID spotify.ID
-	for _, playlist := range playlists.Playlists {
-		if playlist.Name == playlistName {
-			playlistID = playlist.ID
+		allPlaylists = append(allPlaylists, playlistPage.Playlists...)
+
+		if len(playlistPage.Playlists) < limit {
 			break
 		}
+		offset += limit
 	}
 
-	if playlistID == "" {
-		return fmt.Errorf("playlist '%s' not found", playlistName)
-	}
+	// Get user's tracks with pagination support
+	var allPlaylistItems []spotify.PlaylistItem
+	limit = 50
+	offset = 0
 
-	// Get playlist tracks
-	playlistItems, err := p.Client.GetPlaylistItems(ctx, playlistID)
-	if err != nil {
-		return fmt.Errorf("error getting playlist items: %v", err)
+	for {
+		playlistItemsPage, err := p.Client.GetPlaylistItems(ctx, selectedPlaylist.ID, spotify.Limit(limit), spotify.Offset(offset))
+		if err != nil {
+			return fmt.Errorf("error getting playlist items: %v", err)
+		}
+		allPlaylistItems = append(allPlaylistItems, playlistItemsPage.Items...)
+		if len(playlistItemsPage.Items) < limit {
+			break
+		}
+		offset += limit
 	}
 
 	// Create CSV file
@@ -124,7 +182,7 @@ func (p *SpotifyPorter) Export() error {
 	writer.Write(header)
 
 	// Write tracks
-	for _, item := range playlistItems.Items {
+	for _, item := range allPlaylistItems {
 		track := item.Track.Track
 		artistNames := ""
 		artistIDs := ""
@@ -272,14 +330,6 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 
 	// use the token to get an authenticated client
 	client := spotify.New(auth.Client(r.Context(), tok))
-	fmt.Fprintf(w, "Login Completed!")
+	fmt.Fprintf(w, "Login Completed! You can now close this window.")
 	ch <- client
-}
-
-func generateState() string {
-	bytes := make([]byte, 8) // 8 bytes will result in 16 hex characters
-	if _, err := rand.Read(bytes); err != nil {
-		log.Fatal(err)
-	}
-	return hex.EncodeToString(bytes)
 }

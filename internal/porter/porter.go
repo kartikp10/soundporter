@@ -1,5 +1,7 @@
 package porter
 
+import "log"
+
 type Porter interface {
 	Auth() error
 	Export() error
@@ -7,12 +9,14 @@ type Porter interface {
 }
 
 type Port struct {
-	Porter Porter
+	Platform string
+	Porter   Porter
 }
 
-func NewPort(porter Porter) *Port {
+func NewPort(platform string, porter Porter) *Port {
 	return &Port{
-		Porter: porter,
+		Platform: platform,
+		Porter:   porter,
 	}
 }
 
@@ -20,10 +24,12 @@ func (p *Port) Auth() error {
 	return p.Porter.Auth()
 }
 
-func (p *Port) Export(destPath string) error {
+func (p *Port) Export() error {
+	log.Printf("Exporting playlists to %s...", p.Platform)
 	return p.Porter.Export()
 }
 
-func (p *Port) Import(sourcePath string) error {
+func (p *Port) Import() error {
+	log.Printf("Importing playlists to %s...", p.Platform)
 	return p.Porter.Import()
 }
