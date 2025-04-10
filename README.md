@@ -2,7 +2,7 @@
 
 # Soundporter
 
-Soundporter is a command-line interface (CLI) tool designed to help users export and import playlists from and to various music platforms. This tool simplifies the process of managing your music playlists across different services.
+Soundporter is a CLI tool that exports and imports playlists from and to various music platforms. This is a hobby project primarily to help me move all my playlists from Spotify to YouTube Music and (maybe) Apple Music too. Feel free to use, modify and contribute!
 
 ## Features
 
@@ -11,14 +11,7 @@ Soundporter is a command-line interface (CLI) tool designed to help users export
 
 ## Installation
 
-To install Soundporter, clone the repository and navigate to the project directory:
-
-```bash
-git clone <repository-url>
-cd soundporter
-```
-
-Then, build the project using Go:
+To install Soundporter, clone the repository and build the project using Go:
 
 ```bash
 go build -o soundporter ./cmd
