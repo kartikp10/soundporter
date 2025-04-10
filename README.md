@@ -6,7 +6,6 @@ Soundporter is a command-line interface (CLI) tool designed to help users export
 
 - Export playlists from a specified music platform to various formats.
 - Import playlists from different formats into your preferred music platform.
-- Utility functions for input validation and playlist formatting.
 
 ## Installation
 
@@ -34,10 +33,10 @@ To use Soundporter, run the following command in your terminal:
 ### Commands
 
 - **export**: Export playlists from a music platform.
-  - Example: `./soundporter export --source <platform> --destination <format>`
+  - Example: `./soundporter export`
 
 - **import**: Import playlists into a music platform.
-  - Example: `./soundporter import --source <format> --destination <platform>`
+  - Example: `./soundporter import`
 
 ## Contributing
 

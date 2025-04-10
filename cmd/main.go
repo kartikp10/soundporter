@@ -3,11 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	porter "soundporter/internal/porter"
-	spotifyPorter "soundporter/internal/spotify"
-	youtubePorter "soundporter/internal/youtube"
+	"soundporter/internal/actions"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 )
@@ -23,30 +22,16 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "from",
-						Aliases:  []string{"f"},
 						Usage:    "Platform to export from (spotify, youtube)",
-						Required: true,
+						Required: false,
+					},
+					&cli.StringFlag{
+						Name:     "file",
+						Usage:    "File path to save the exported playlists (default: playlists.csv)",
+						Required: false,
 					},
 				},
-				Action: func(c *cli.Context) error {
-					platform := strings.ToLower(c.String("from"))
-					var port *porter.Port
-
-					switch platform {
-					case "spotify":
-						port = porter.NewPort(platform, &spotifyPorter.SpotifyPorter{})
-					case "youtube":
-						port = porter.NewPort(platform, &youtubePorter.YouTubePorter{})
-					default:
-						return fmt.Errorf("unsupported platform: %s", platform)
-					}
-
-					err := port.Auth()
-					if err != nil {
-						return fmt.Errorf("authentication failed: %v", err)
-					}
-					return port.Export()
-				},
+				Action: actions.ExportPlaylist,
 			},
 			{
 				Name:  "import",
@@ -56,33 +41,30 @@ func main() {
 						Name:     "to",
 						Aliases:  []string{"t"},
 						Usage:    "Platform to import to (spotify, youtube)",
-						Required: true,
+						Required: false,
 					},
 					&cli.StringFlag{
 						Name:     "file",
 						Aliases:  []string{"f"},
 						Usage:    "CSV file to import",
-						Required: false,
+						Required: true,
 					},
 				},
 				Action: func(c *cli.Context) error {
-					platform := strings.ToLower(c.String("from"))
-					var port *porter.Port
-
-					switch platform {
-					case "spotify":
-						port = porter.NewPort(platform, &spotifyPorter.SpotifyPorter{})
-					case "youtube":
-						port = porter.NewPort(platform, &youtubePorter.YouTubePorter{})
-					default:
-						return fmt.Errorf("unsupported platform: %s", platform)
+					platform := strings.ToLower(c.String("to"))
+					sourceFile := c.String("file")
+					if platform == "" {
+						huh.NewSelect[string]().
+							Title("Choose the platform to import to").
+							Options(
+								huh.NewOption("Spotify", "spotify"),
+								huh.NewOption("YouTube Music", "youtube"),
+							).
+							Value(&platform).
+							Run()
 					}
-
-					err := port.Auth()
-					if err != nil {
-						return fmt.Errorf("authentication failed: %v", err)
-					}
-					return port.Import()
+					fmt.Println("Not implemented yet. Will importing from file:", sourceFile)
+					return nil
 				},
 			},
 		},
