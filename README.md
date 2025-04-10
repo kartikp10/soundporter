@@ -1,3 +1,5 @@
+![logo](./logo.png)
+
 # Soundporter
 
 Soundporter is a command-line interface (CLI) tool designed to help users export and import playlists from and to various music platforms. This tool simplifies the process of managing your music playlists across different services.
